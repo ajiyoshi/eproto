@@ -1,0 +1,100 @@
+%%Generated Protobuf Codec File 
+${module_def}
+
+-export([encode/2,
+	decode/2]).
+
+${generated_record_def}
+
+-include("eproto.hrl").
+-include_lib("eunit/include/eunit.hrl").
+%%====================================================================
+%% API
+%%====================================================================
+
+%%encode tuple into binary
+encode(MT, Rec) ->
+	[_|Values] = tuple_to_list(Rec),
+	Fields = get_record_info(MT),
+	encode_fd(<<>>, MT, Values, Fields, <<>>).
+
+%%decode binary into tuple
+decode(MT, Bin) ->
+	{FD, WT, RBin} = get_next_fd(MT, Bin),
+	preserve_order(decode_fd(MT, FD, WT, RBin, get_init_msg(MT))).
+
+%%====================================================================
+%% Common Codec Functions
+%%====================================================================
+	
+update_repeated_fd(undefined, V) ->
+	[V];
+update_repeated_fd(Orig, V) ->
+	[V|Orig].	
+
+%%get current field value from bytes,
+%%recursively to decode next field
+get_fd_value(MT, WT, FD, Bin, Fun) ->		
+	%%when field type is Message, change the MT para
+	case FD#field_desc.type of
+		?TYPE_MESSAGE -> 
+			{V, Bin1} = get_msg_value(FD#field_desc.type_name, WT, FD, Bin);			
+		_ ->
+			{V, Bin1} = eproto_codec:get_value(WT, FD, Bin)
+	end,
+	%%preserve order when each message decoded
+	R2 = Fun(preserve_order(V)),
+	get_next_fd_value(MT, Bin1, R2).
+	
+get_next_fd_value(MT, Bin, R) ->
+	case get_next_fd(MT, Bin) of 
+		undefined -> 
+			R;
+		{FD, WT, Bin2} ->
+			decode_fd(MT, FD, WT, Bin2, R)
+	end.
+	
+get_msg_value(MT, WT, FD, Bin) ->
+	{Bin1, RBin} = eproto_codec:get_msg_bin(WT, FD, Bin),
+	{get_next_fd_value(MT, Bin1, get_init_msg(MT)), RBin}.
+		
+
+%%get next field description
+get_next_fd(_, <<>>) ->
+	undefined;
+get_next_fd(MT, Bin) ->
+	{ID, WT, RBin} = eproto_codec:get_id_wt(Bin),
+	{get_fd(MT, ID), WT, RBin}.
+
+%%-----------------------------------------------------------------------
+
+encode_fd(<<>>, _MT, [], [], Acc) ->
+	Acc;
+encode_fd(Head, _MT, [], [], Acc) ->
+	BSize = eproto_codec:gen_varint(erlang:size(Acc)),	
+	<<Head/binary, BSize/binary, Acc/binary>>;
+encode_fd(Head, MT, [undefined|TV], [_HF|TF], Acc) ->
+	%%should add label check here
+	encode_fd(Head, MT, TV, TF, Acc);
+encode_fd(Head, MT, [HV|TV], [HF|TF], Acc) ->
+	FD = get_fd(MT, HF),
+	Bin = gen_fd(FD, HV, <<>>),
+	encode_fd(Head, MT, TV, TF, <<Acc/binary, Bin/binary>>).
+
+gen_fd(#field_desc{type=?TYPE_MESSAGE}, [], Acc) ->
+	Acc;
+gen_fd(FD = #field_desc{type=?TYPE_MESSAGE}, [HV|TV], Acc) ->
+	Bin = gen_fd(FD, HV, Acc),
+	gen_fd(FD, TV, <<Acc/binary, Bin/binary>>);
+gen_fd(FD = #field_desc{type=?TYPE_MESSAGE}, V, _Acc) ->
+	BWI = eproto_codec:gen_id_wt(FD),
+	[_|Values] = tuple_to_list(V),
+	Fields = get_record_info(FD#field_desc.type_name),
+	encode_fd(BWI, FD#field_desc.type_name, Values, Fields, <<>>);
+gen_fd(FD = #field_desc{}, V, _Acc) ->
+	eproto_codec:gen_basic_value(FD, V).	
+	
+%%====================================================================
+%% Specialized Functions
+%%====================================================================
+${generated_functions}
