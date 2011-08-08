@@ -23,11 +23,38 @@ encode(MT, Rec) ->
 %%decode binary into tuple
 decode(MT, Bin) ->
 	{FD, WT, RBin} = get_next_fd(MT, Bin),
-	preserve_order(decode_fd(MT, FD, WT, RBin, get_init_msg(MT))).
+	V = decode_fd(MT, FD, WT, RBin, []),
+	make_record(MT, V).
 
 %%====================================================================
 %% Common Codec Functions
 %%====================================================================
+compare_element({ID1, _, _}, {ID2, _}) ->
+	ID1 > ID2;
+compare_element({ID1, _}, {ID2, _, _}) ->
+	ID1 > ID2;
+compare_element({ID1, _}, {ID2, _}) ->
+	ID1 > ID2;
+compare_element({ID1, SID1, _}, {ID2, SID2, _}) ->
+	if 
+		ID1 == ID2 -> SID1 > SID2;
+		true -> ID1 > ID2
+	end.
+
+prepare_tuple_list(E = {_, _}, Acc) ->
+	[E|Acc];
+prepare_tuple_list({ID, _, V}, []) ->
+	[{ID, [V]}];
+prepare_tuple_list({ID, _, V}, [ {ID0, V0} | T]) ->
+	if
+		ID == ID0 -> [ {ID0, [V|V0]}|T];
+		true -> [{ID, [V]}|T]
+	end.
+
+make_record(MT, L) ->
+	L1 = lists:sort(fun(E1, E2) -> compare_element(E1, E2) end, L),
+	L2 = lists:foldl(fun(E, Acc) -> prepare_tuple_list(E, Acc) end, [], L1),
+	erlang:make_tuple(get_record_size(MT), undefind, [{1, MT} | L2]).	
 	
 update_repeated_fd(undefined, V) ->
 	[V];
@@ -38,15 +65,16 @@ update_repeated_fd(Orig, V) ->
 %%recursively to decode next field
 get_fd_value(MT, WT, FD, Bin, Fun) ->		
 	%%when field type is Message, change the MT para
-	case FD#field_desc.type of
+	{RV, RBin} = case FD#field_desc.type of
 		?TYPE_MESSAGE -> 
-			{V, Bin1} = get_msg_value(FD#field_desc.type_name, WT, FD, Bin);			
+			{V, Bin1} = get_msg_value(FD#field_desc.type_name, WT, FD, Bin),
+			{make_record(FD#field_desc.type_name, V), Bin1};
 		_ ->
-			{V, Bin1} = eproto_codec:get_value(WT, FD, Bin)
+			eproto_codec:get_value(WT, FD, Bin)
 	end,
 	%%preserve order when each message decoded
-	R2 = Fun(preserve_order(V)),
-	get_next_fd_value(MT, Bin1, R2).
+	R2 = Fun(RV),
+	get_next_fd_value(MT, RBin, R2).
 	
 get_next_fd_value(MT, Bin, R) ->
 	case get_next_fd(MT, Bin) of 
@@ -58,7 +86,7 @@ get_next_fd_value(MT, Bin, R) ->
 	
 get_msg_value(MT, WT, FD, Bin) ->
 	{Bin1, RBin} = eproto_codec:get_msg_bin(WT, FD, Bin),
-	{get_next_fd_value(MT, Bin1, get_init_msg(MT)), RBin}.
+	{get_next_fd_value(MT, Bin1, []), RBin}.
 		
 
 %%get next field description
@@ -99,6 +127,13 @@ gen_fd(FD = #field_desc{}, V, _Acc) ->
 %%====================================================================
 %% Specialized Functions
 %%====================================================================
+get_record_size(tour_addressbook) ->
+	 record_info(size, tour_addressbook);
+get_record_size(tour_person) ->
+	 record_info(size, tour_person);
+get_record_size(tour_person_phonenumber) ->
+	 record_info(size, tour_person_phonenumber).
+
 get_record_info(tour_addressbook) ->
 	 record_info(fields, tour_addressbook);
 get_record_info(tour_person) ->
@@ -136,17 +171,17 @@ get_fd(tour_person_phonenumber, N) when N==1 orelse N==number ->
 	#field_desc{number=1, name=number, label = 2, type=9, type_name=undefined}.
 %------------------------------------------
 decode_fd(MT = tour_addressbook, F = #field_desc{name = person}, WT, Bin, R) ->
-	get_fd_value(MT, WT, F, Bin, fun(V)-> R#tour_addressbook{person = update_repeated_fd(R#tour_addressbook.person, V)} end);
+	get_fd_value(MT, WT, F, Bin, fun(V)-> [{#tour_addressbook.person, length(R), V} | R] end);
 decode_fd(MT = tour_person, F = #field_desc{name = phone}, WT, Bin, R) ->
-	get_fd_value(MT, WT, F, Bin, fun(V)-> R#tour_person{phone = update_repeated_fd(R#tour_person.phone, V)} end);
+	get_fd_value(MT, WT, F, Bin, fun(V)-> [{#tour_person.phone, length(R), V} | R] end);
 decode_fd(MT = tour_person, F = #field_desc{name = email}, WT, Bin, R) ->
-	get_fd_value(MT, WT, F, Bin, fun(V)-> R#tour_person{email = V} end);
+	get_fd_value(MT, WT, F, Bin, fun(V)-> [{#tour_person.email, V} | R] end);
 decode_fd(MT = tour_person, F = #field_desc{name = id}, WT, Bin, R) ->
-	get_fd_value(MT, WT, F, Bin, fun(V)-> R#tour_person{id = V} end);
+	get_fd_value(MT, WT, F, Bin, fun(V)-> [{#tour_person.id, V} | R] end);
 decode_fd(MT = tour_person, F = #field_desc{name = name}, WT, Bin, R) ->
-	get_fd_value(MT, WT, F, Bin, fun(V)-> R#tour_person{name = V} end);
+	get_fd_value(MT, WT, F, Bin, fun(V)-> [{#tour_person.name, V} | R] end);
 decode_fd(MT = tour_person_phonenumber, F = #field_desc{name = type}, WT, Bin, R) ->
-	get_fd_value(MT, WT, F, Bin, fun(V)-> R#tour_person_phonenumber{type = V} end);
+	get_fd_value(MT, WT, F, Bin, fun(V)-> [{#tour_person_phonenumber.type, V} | R] end);
 decode_fd(MT = tour_person_phonenumber, F = #field_desc{name = number}, WT, Bin, R) ->
-	get_fd_value(MT, WT, F, Bin, fun(V)-> R#tour_person_phonenumber{number = V} end).
+	get_fd_value(MT, WT, F, Bin, fun(V)-> [{#tour_person_phonenumber.number, V} | R] end).
 %------------------------------------------
