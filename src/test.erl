@@ -49,9 +49,9 @@ get_home() ->
 	Path ++ "/".
 
 make_test_rec() ->
-	Phone = #tour_person_phonenumber{number = <<"13777486490">>, type = 0},
-	Person = #tour_person{name = <<"CE">>, id = 1, email = <<"radiumce@gmail.com">>, phone = Phone},
-	Person1 = #tour_person{name = <<"CE-2">>, id = 1, email = <<"radiumce@gmail.com">>, phone = Phone},
+	Phone = #tour_person_phonenumber{number = <<"1234567">>, type = 0},
+	Person = #tour_person{name = <<"CE">>, id = 1, email = <<"user@example.com">>, phone = [Phone]},
+	Person1 = #tour_person{name = <<"CE-2">>, id = 1, email = <<"user@example.com">>, phone = [Phone]},
 	#tour_addressbook{person = [Person, Person1]}.
 
 calc_time() ->
@@ -75,6 +75,12 @@ codec_test() ->
 	R = address:decode(tour_addressbook, B),
 	B2 = address:encode(tour_addressbook, R),
 	io:format("~p~n~p~n~p~n", [B, R, B2]).
+
+encode_decode_test() ->
+	Origin = make_test_rec(),
+	Binary = address:encode(tour_addressbook, Origin),
+	Decode = address:decode(tour_addressbook, Binary),
+	?assertEqual(Origin, Decode).
 
 ec_test(N) ->
 	R = make_test_rec(),
