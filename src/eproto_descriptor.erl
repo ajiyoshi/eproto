@@ -10,10 +10,7 @@
 %%
 -include("eproto.hrl").
 -include("descriptor.hrl").
-%%
-%% Exported Functions
-%%
--export([]).
+-include_lib("eunit/include/eunit.hrl").
 
 %%
 %% API Functions
@@ -235,5 +232,5 @@ get_next_fd(MT, Bin) ->
 %% Test Functions
 %%==================================================================
 decode_test() ->
-	FilePath = "D:\\tmp\\desc.out",
+	FilePath = test:get_home() ++ "addr_desc.out",
 	decode(FilePath).

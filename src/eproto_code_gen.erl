@@ -131,9 +131,6 @@ partition_flist(FList, [Fun|T], Acc) ->
 	{L, Rest} = lists:partition(fun({FName, _FString}) -> FName =:= Fun end, FList),
 	partition_flist(Rest, T, [L|Acc]).
 
-gen_hrl_file(Acc) ->
-	ok.
-
 visit_file_descs([], FDAcc) ->
 	FDAcc;
 visit_file_descs([H|T], FDAcc) ->

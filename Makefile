@@ -13,7 +13,7 @@ ebin/%.beam : src/%.erl $(HEADERS) Makefile ebin
 	erlc $(ERLC_FLAGS) -o ebin/ $<
 
 clean:
-	-rm $(OBJECTS)
+	-rm $(OBJECTS) addressbook.bin address.erl
 	-rm -r ebin
 
 test:

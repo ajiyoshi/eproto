@@ -45,7 +45,8 @@ get_proto_binary(IODev, Acc) ->
 	end.	
 
 get_home() ->
-	"/Users/CE/erlang/workspace/eproto/".
+	{ok, Path} = file:get_cwd(),
+	Path ++ "/".
 
 make_test_rec() ->
 	Phone = #tour_person_phonenumber{number = <<"13777486490">>, type = 0},
@@ -59,15 +60,15 @@ calc_time() ->
 %%
 %% Unit Test
 %%
-decode_test() ->
-	R = decode(tour_addressbook, get_home() ++ "addressbook.out"),
-	io:format("~p~n", [R]).
-
 encode_test() ->
 	AB = make_test_rec(),
 	B = encode(tour_addressbook, AB, get_home() ++ "addressbook.bin"),
 	io:format("bin_value = ~p~nsize = ~p~n", [B, byte_size(B)]),
 	B.
+
+decode_test() ->
+	R = decode(tour_addressbook, get_home() ++ "addressbook.bin"),
+	io:format("~p~n", [R]).
 
 codec_test() ->
 	B = encode_test(),
