@@ -50,8 +50,8 @@ get_home() ->
 
 make_test_rec() ->
 	Phone = #tour_person_phonenumber{number = <<"1234567">>, type = 0},
-	Person = #tour_person{name = <<"CE">>, id = 1, email = <<"user@example.com">>, phone = [Phone]},
-	Person1 = #tour_person{name = <<"CE-2">>, id = 1, email = <<"user@example.com">>, phone = [Phone]},
+	Person = #tour_person{name = <<"CE">>, id = 150, email = <<"user@example.com">>, phone = [Phone]},
+	Person1 = #tour_person{name = <<"CE-2">>, id = 151, email = <<"user@example.com">>, phone = [Phone]},
 	#tour_addressbook{person = [Person, Person1]}.
 
 calc_time() ->

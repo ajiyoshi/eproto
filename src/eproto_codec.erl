@@ -165,17 +165,32 @@ make_id_wt(ID, WT) ->
 	gen_varint(ID * 8 + WT).
 
 %%generate varint from input value
-gen_varint(V) ->
-	gen_varint_1(V rem 128, V div 128, <<>>).
+-define(GPB_BASE, 2#10000000).
+gen_varint(Num) when Num < ?GPB_BASE ->
+   <<0:1, Num:7>>;
+gen_varint(Num) ->
+	Rem = Num rem ?GPB_BASE,
+	join_bits(<<1:1, Rem:7>>, gen_varint(Num div ?GPB_BASE)).
 
-gen_varint_1(Rem, 0, <<>>) ->
-	<<0:1, Rem:7>>;
-gen_varint_1(Rem, Div, <<>>) ->
-	gen_varint_1(Rem, Div, <<0:1, Rem:7>>);
-gen_varint_1(Rem, 0, Acc) ->
-	<<1:1, Rem:7, Acc>>;
-gen_varint_1(Rem, Div, Acc) ->
-	gen_varint_1(Rem, Div, <<1:1, Rem:7, Acc>>).
+% tail recursive version. i wonder this version is easy to understand or not.
+% i think i will NEVER use large var int.
+-ifdef(gen_varint_1_tail_recursive).
+gen_varint_1(Num) when Num < ?GPB_BASE ->
+	<<0:1, Num:7>>;
+gen_varint_1(Num) ->
+	[H|T] = radix_list(Num, [], ?GPB_BASE),
+	Tails = list_to_binary( lists:reverse([X+?GPB_BASE || X <- T]) ),
+	join_bits( Tails, <<H>> ).
+
+radix_list(Num, [], Base) ->
+	radix_list(Num div Base, [ Num rem Base ]);
+radix_list(0, Acc, Base) ->
+	Acc;
+radix_list(Num, Acc, Base) ->
+	radix_list(Num div Base, [ Num rem Base | Acc ]).
+-endif.
+
+-undef(GPB_BASE).
 
 %%generate bytes according to the field type
 %%when label is repeated, return packed bytes
@@ -241,9 +256,34 @@ join_bits(L, R) ->
 %%==================================================================
 
 get_varint_test() ->
-	?assert(get_varint(<<150, 1, 67, 69>>) == {150, <<67, 69>>}),
-	?assert(get_varint(<<1, 67, 69>>) == {1, <<67, 69>>}),
+	?assertEqual(get_varint(<<150, 1, 67, 69>>), {150, <<67, 69>>}),
+	?assertEqual(get_varint(<<1, 67, 69>>), {1, <<67, 69>>}),
+	?assertEqual(get_varint(<<16#AC, 16#02>>), {300, <<>>}),
 	io:format("get_varint_test -- testing done~n").
+
+gen_varint_test() ->
+	?assertEqual(gen_varint(150), <<16#96, 16#01>>),
+	?assertEqual(gen_varint(300), <<16#AC, 16#02>>),
+	?assertEqual(gen_varint(0), <<0>>),
+	?assertEqual(gen_varint(1), <<1>>),
+	?assertEqual(gen_varint(2), <<2>>),
+	?assertEqual(gen_varint(127), <<127>>),
+	?assertEqual(gen_varint(128), <<128, 1>>),
+	?assertEqual(gen_varint(129), <<129, 1>>),
+	?assertEqual(gen_varint(16383), <<255, 127>>),
+	?assertEqual(gen_varint(16384), <<128, 128, 1>>),
+	?assertEqual(gen_varint(16385), <<129, 128, 1>>),
+	?assertEqual(get_varint(gen_varint(150)), {150, <<>>}),
+	?assertEqual(get_varint(gen_varint(300)), {300, <<>>}),
+	?assertEqual(get_varint(gen_varint(1)), {1, <<>>}),
+	?assertEqual(get_varint(gen_varint(2)), {2, <<>>}),
+	?assertEqual(get_varint(gen_varint(127)), {127, <<>>}),
+	?assertEqual(get_varint(gen_varint(128)), {128, <<>>}),
+	?assertEqual(get_varint(gen_varint(129)), {129, <<>>}),
+	?assertEqual(get_varint(gen_varint(16383)), {16383, <<>>}),
+	?assertEqual(get_varint(gen_varint(16384)), {16384, <<>>}),
+	?assertEqual(get_varint(gen_varint(16385)), {16385, <<>>}),
+	io:format("gen_varint_test -- testing done~n").
 
 get_id_wt_test() ->
 	?assert(get_id_wt(<<8, 8>>) == {1, 0, <<8>>}),
