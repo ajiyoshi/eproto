@@ -297,6 +297,9 @@ gen_varint_test() ->
 	?assertEqual(get_varint(gen_varint(16383)), {16383, <<>>}),
 	?assertEqual(get_varint(gen_varint(16384)), {16384, <<>>}),
 	?assertEqual(get_varint(gen_varint(16385)), {16385, <<>>}),
+
+	?assertEqual(get_value2(?WT_VARINT, ?TYPE_SINT32, gen_zig_zag(-1)), {-1, <<>>}),
+	?assertEqual(get_value2(?WT_VARINT, ?TYPE_SINT32, gen_zig_zag(-128)), {-128, <<>>}),
 	ok.
 
 gen_value_test() ->
