@@ -4,12 +4,12 @@ SOURCES=$(wildcard src/*.erl)
 HEADERS=$(wildcard include/*.hrl)
 OBJECTS=$(SOURCES:src/%.erl=ebin/%.beam)
 
-all:$(OBJECTS) test
+all:ebin $(OBJECTS) test
 
 ebin:
 	mkdir ebin
 
-ebin/%.beam : src/%.erl $(HEADERS) Makefile ebin
+ebin/%.beam : src/%.erl $(HEADERS) Makefile
 	erlc $(ERLC_FLAGS) -o ebin/ $<
 
 clean:
