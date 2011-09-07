@@ -33,7 +33,7 @@ visit_file_desc_set(Desc) ->
 gen_proto_file(STAcc, RDefAcc, MName) ->
 	Funs = [decode_fd, get_fd, preserv_order, get_init_msg, get_record_info],
 	FLists = partition_flist(STAcc, Funs, []),
-	write_file(test:get_home() ++ "address.erl", FLists, RDefAcc, MName),
+	write_file(MName ++ ".erl", FLists, RDefAcc, MName),
 	ok.
 
 write_file(FName, FLists, RDefAcc, MName) ->

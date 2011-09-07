@@ -18,11 +18,11 @@
 %%====================================================================
 
 %%get basic type value except messages 
-get_value(?WT_LEN, FD, Bin) ->
-	get_value2(?WT_LEN, FD#field_desc.type, Bin);
 get_value(WT, FD = #field_desc{label = repeated}, Bin) ->
 	{Size, Rest} = get_varint(Bin),
 	get_value1(WT, FD, Rest, Size, []);	
+get_value(?WT_LEN, FD, Bin) ->
+	get_value2(?WT_LEN, FD#field_desc.type, Bin);
 get_value(WT, FD, Bin) ->
 	get_value2(WT, FD#field_desc.type, Bin).
 
@@ -197,58 +197,66 @@ radix_list(Num, Acc, Base) ->
 gen_basic_value(FD, V) ->
 	gen_value(FD#field_desc.number, FD#field_desc.type, V).
 
-gen_value(ID, ?TYPE_DOUBLE, V) ->
-	B = make_id_wt(ID, ?WT_64BIT),
-	join_bits(B, <<V:64/float>>);	
-gen_value(ID, ?TYPE_FLOAT, V) ->
-	B = make_id_wt(ID, ?WT_32BIT),
-	join_bits(B, <<V:32/float>>);
-gen_value(ID, ?TYPE_INT64, V) ->
-	gen_varint_value(ID, V);
-gen_value(ID, ?TYPE_UINT64, V) ->
-	gen_varint_value(ID, V);
-gen_value(ID, ?TYPE_INT32, V) ->
-	gen_varint_value(ID, V);
-gen_value(ID, ?TYPE_UINT32, V) ->
-	gen_varint_value(ID, V);
-gen_value(ID, ?TYPE_ENUM, V) ->
-	gen_varint_value(ID, V);
-gen_value(ID, ?TYPE_FIXED64, V) ->
-	B = make_id_wt(ID, ?WT_64BIT),
-	join_bits(B, <<V:64/integer>>);	
-gen_value(ID, ?TYPE_FIXED32, V) ->
-	B = make_id_wt(ID, ?WT_32BIT),
-	join_bits(B, <<V:32/integer>>);	
-gen_value(ID, ?TYPE_SFIXED64, V) ->
-	B = make_id_wt(ID, ?WT_64BIT),
-	join_bits(B, <<V:64/signed-integer>>);	
-gen_value(ID, ?TYPE_SFIXED32, V) ->
-	B = make_id_wt(ID, ?WT_32BIT),
-	join_bits(B, <<V:32/signed-integer>>);	
-gen_value(ID, ?TYPE_BOOL, V) ->
-	gen_varint_value(ID, V);
-gen_value(ID, ?TYPE_STRING, V) ->
-	B = make_id_wt(ID, ?WT_LEN),
-	BLen = gen_varint(byte_size(V)),
-	join_bits(B, join_bits(BLen, V));	
-gen_value(ID, ?TYPE_BYTES, V) ->
-	B = make_id_wt(ID, ?WT_LEN),
-	BLen = gen_varint(byte_size(V)),
-	join_bits(B, join_bits(BLen, V));	
-gen_value(ID, Type, V) 
-  when Type == ?TYPE_SINT32 orelse Type == ?TYPE_SINT64 ->
-	gen_zig_zag_value(ID, V).
+gen_packed_repeated(_ID, _Type, []) ->
+	<<>>;
+gen_packed_repeated(ID, Type, L) when is_list(L) ->
+	Bin = list_to_binary( [ make_body(Type, X) || X <- L ] ),
+	gen_value(ID, ?TYPE_BYTES, Bin);
+gen_packed_repeated(ID, Type, V) ->
+	gen_value(ID, Type, V).
 
-gen_zig_zag_value(ID, V) ->
+gen_value(ID, Type, V) when is_list(V) ->
+	list_to_binary( [ gen_value(ID, Type, X) || X <- V ] );
+gen_value(ID, Type, V) ->
+	Head = make_id_wt(ID, get_wt_by_type(Type)),
+	Body = make_body(Type, V),
+	join_bits(Head, Body).
+
+make_body(?TYPE_INT64, V) ->
+	gen_varint(V);
+make_body(?TYPE_UINT64, V) ->
+	gen_varint(V);
+make_body(?TYPE_INT32, V) ->
+	gen_varint(V);
+make_body(?TYPE_UINT32, V) ->
+	gen_varint(V);
+make_body(?TYPE_ENUM, V) ->
+	gen_varint(V);
+make_body(?TYPE_BOOL, V) ->
+	gen_varint(V);
+make_body(?TYPE_BYTES, V) ->
+	gen_length_delimited(V);
+make_body(?TYPE_STRING, V) ->
+	gen_length_delimited(V);
+make_body(?TYPE_FIXED64, V) ->
+	<<V:64/integer>>;
+make_body(?TYPE_FIXED32, V) ->
+	<<V:32/integer>>;
+make_body(?TYPE_SFIXED64, V) ->
+	<<V:64/signed-integer>>;
+make_body(?TYPE_SFIXED32, V) ->
+	<<V:32/signed-integer>>;
+make_body(?TYPE_DOUBLE, V) ->
+	<<V:64/float>>;
+make_body(?TYPE_FLOAT, V) ->
+	<<V:32/float>>;
+make_body(?TYPE_SINT64, V) ->
+	gen_zig_zag(V);
+make_body(?TYPE_SINT32, V) ->
+	gen_zig_zag(V);
+make_body(_Type, _V) ->
+	<<>>.
+
+gen_zig_zag(V) ->
 	V1 = if
-			V >= 0 -> V * 2;
-			V < 0 -> (0 - V) * 2 - 1
-		end,
-	gen_varint_value(ID, V1).
+		V >= 0 -> V * 2;
+		V < 0 -> (0 - V) * 2 - 1
+	end,
+	gen_varint(V1).
 
-gen_varint_value(ID, V) ->
-	B = make_id_wt(ID, ?WT_VARINT),
-	join_bits(B, gen_varint(V)).
+gen_length_delimited(V) ->
+	BLen = gen_varint(byte_size(V)),
+	join_bits(BLen, V).
 
 join_bits(L, R) ->
 	<<L/bits, R/bits>>.
@@ -299,6 +307,31 @@ gen_value_test() ->
 	Len = byte_size(Str),
 	?assertEqual( gen_value(8, ?TYPE_STRING, Str), join_bits(<<8:5, ?WT_LEN:3, Len:8>>, Str) ),
 	?assertEqual( gen_value(9, ?TYPE_BYTES, Str), join_bits(<<9:5, ?WT_LEN:3, Len:8>>, Str) ),
+
+	%repeated varint
+	?assertEqual( gen_value(10, ?TYPE_UINT32, [1, 3, 150]),
+		<<
+		10:5, ?WT_VARINT:3, 1,
+		10:5, ?WT_VARINT:3, 3,
+		10:5, ?WT_VARINT:3, 16#96:8, 16#01:8
+		>>
+	),
+
+	%repeated bytes
+	?assertEqual( gen_value(11, ?TYPE_BYTES, [<<1, 2, 3>>, <<2, 3>>, <<4>>]),
+		<<
+		11:5, ?WT_LEN:3, 3:8, 1:8, 2:8, 3:8,
+		11:5, ?WT_LEN:3, 2:8, 2:8, 3:8,
+		11:5, ?WT_LEN:3, 1:8, 4:8
+		>>
+	),
+
+	ok.
+
+gen_repeated_test() ->
+	?assertEqual( gen_packed_repeated(1, ?TYPE_INT32, []), <<>> ),
+	?assertEqual( gen_packed_repeated(1, ?TYPE_INT32, [1]), <<16#0a, 1, 1>> ),
+	?assertEqual( gen_packed_repeated(1, ?TYPE_INT32, [1, 2, 3, 4, 150]), <<16#0a, 6, 1, 2, 3, 4, 16#96, 16#01>> ),
 	ok.
 
 get_id_wt_test() ->
@@ -319,6 +352,17 @@ get_value_test() ->
 	{V2, Rest2} = get_value(?WT_VARINT, #field_desc{type = ?TYPE_SINT32},
 		<<150, 1, 67, 69>>),	
 	?assertEqual({V2, Rest2}, {75, <<67, 69>>}),
+
+	{V3, Rest3} = get_value1(?WT_LEN, #field_desc{type = ?TYPE_BYTES}, <<1, 2, 1, 5, 2, 4, 128>>, 7, []),
+	?assertEqual({V3, Rest3}, {[<<2>>, <<5>>, <<4, 128>>], <<>>}),
+
+	{V4, Rest4} = get_value(?WT_LEN, #field_desc{type = ?TYPE_BYTES, label = repeated},
+		<<7, 1, 2, 1, 5, 2, 4, 128>>),	
+	?assertEqual({V4, Rest4}, {[<<2>>, <<5>>, <<4, 128>>], <<>>}),
+
+	{V5, Rest5} = get_value(?WT_LEN, #field_desc{type = ?TYPE_BYTES},
+		<<7, 1, 2, 1, 5, 2, 4, 128, 1>>),	
+	?assertEqual({V5, Rest5}, {<<1, 2, 1, 5, 2, 4, 128>>, <<1>>}),
 	ok.
 
 get_msg_bin_test() ->	
