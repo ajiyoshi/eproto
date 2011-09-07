@@ -18,11 +18,16 @@
 %%====================================================================
 
 %%get basic type value except messages 
-get_value(WT, FD = #field_desc{label = repeated}, Bin) ->
-	{Size, Rest} = get_varint(Bin),
-	get_value1(WT, FD, Rest, Size, []);	
-get_value(?WT_LEN, FD, Bin) ->
-	get_value2(?WT_LEN, FD#field_desc.type, Bin);
+get_value(?WT_LEN, FD = #field_desc{label = ?LABEL_REPEATED}, Bin) ->
+	case (FD#field_desc.type) of
+		?TYPE_BYTES		-> get_value2(?WT_LEN, FD#field_desc.type, Bin);
+		?TYPE_STRING	-> get_value2(?WT_LEN, FD#field_desc.type, Bin);
+		?TYPE_MESSAGE	-> get_value2(?WT_LEN, FD#field_desc.type, Bin);
+		_ -> % packed repeated 
+			{Size, Rest} = get_varint(Bin),
+			WT = get_wt_by_type(FD#field_desc.type),
+			get_value1(WT, FD, Rest, Size, [])
+	end;
 get_value(WT, FD, Bin) ->
 	get_value2(WT, FD#field_desc.type, Bin).
 
@@ -345,9 +350,9 @@ make_id_wt_test() ->
 	ok.
 
 get_value_test() -> 
-	{V1, Rest1} = get_value(?WT_VARINT, #field_desc{type = ?TYPE_UINT32, label = repeated}, 
-		<<5, 25, 26, 150, 1, 27, 67, 69>>),
-	?assertEqual({V1, Rest1}, {[25, 26, 150, 27], <<67, 69>>}),
+	{V1, Rest1} = get_value(?WT_VARINT, #field_desc{type = ?TYPE_UINT32, label = ?LABEL_REPEATED}, 
+		<<150, 1, 67, 69>>),
+	?assertEqual({V1, Rest1}, {150, <<67, 69>>}),
 
 	{V2, Rest2} = get_value(?WT_VARINT, #field_desc{type = ?TYPE_SINT32},
 		<<150, 1, 67, 69>>),	
@@ -356,13 +361,19 @@ get_value_test() ->
 	{V3, Rest3} = get_value1(?WT_LEN, #field_desc{type = ?TYPE_BYTES}, <<1, 2, 1, 5, 2, 4, 128>>, 7, []),
 	?assertEqual({V3, Rest3}, {[<<2>>, <<5>>, <<4, 128>>], <<>>}),
 
-	{V4, Rest4} = get_value(?WT_LEN, #field_desc{type = ?TYPE_BYTES, label = repeated},
-		<<7, 1, 2, 1, 5, 2, 4, 128>>),	
-	?assertEqual({V4, Rest4}, {[<<2>>, <<5>>, <<4, 128>>], <<>>}),
+	%repeated uint32 [packed=true]
+	{V4, Rest4} = get_value(?WT_LEN, #field_desc{type = ?TYPE_UINT32, label = ?LABEL_REPEATED},
+		<<4, 1, 2, 150, 1, 2>>),	
+	?assertEqual({V4, Rest4}, {[1, 2, 150], <<2>>}),
 
 	{V5, Rest5} = get_value(?WT_LEN, #field_desc{type = ?TYPE_BYTES},
-		<<7, 1, 2, 1, 5, 2, 4, 128, 1>>),	
-	?assertEqual({V5, Rest5}, {<<1, 2, 1, 5, 2, 4, 128>>, <<1>>}),
+		<<4, 1, 2, 150, 1, 2>>),	
+	?assertEqual({V5, Rest5}, {<<1, 2, 150, 1>>, <<2>>}),
+
+	%repeated fixed32 [packed=true]
+	{V6, Rest6} = get_value(?WT_LEN, #field_desc{type = ?TYPE_FIXED32, label = ?LABEL_REPEATED},
+		<<8, 0, 0, 0, 1, 0, 0, 0, 2>>),	
+	?assertEqual({V6, Rest6}, {[1, 2], <<>>}),
 	ok.
 
 get_msg_bin_test() ->	
