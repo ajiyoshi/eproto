@@ -1,1 +1,0 @@
-werl -pa .\ebin
