@@ -1,5 +1,5 @@
 
-ERLC_FLAGS= -I include
+ERLC_FLAGS= -I include -smp +native
 SOURCES=$(wildcard src/*.erl)
 HEADERS=$(wildcard include/*.hrl)
 OBJECTS=$(SOURCES:src/%.erl=ebin/%.beam)
