@@ -42,10 +42,10 @@ get_value1(WT, FD, Bin, Size, Acc) ->
 
 
 get_value2(?WT_64BIT, ?TYPE_DOUBLE, Bin) ->
-	<<V:64/float, Rest/binary>> = Bin,
+	<<V:64/float-little, Rest/binary>> = Bin,
 	{V, Rest};
 get_value2(?WT_32BIT, ?TYPE_FLOAT, Bin) ->
-	<<V:32/float, Rest/binary>> = Bin,
+	<<V:32/float-little, Rest/binary>> = Bin,
 	{V, Rest};
 %%TODO: process standard negtive int value
 get_value2(?WT_VARINT, ?TYPE_INT64, Bin) ->
@@ -242,9 +242,9 @@ make_body(?TYPE_SFIXED64, V) ->
 make_body(?TYPE_SFIXED32, V) ->
 	<<V:32/signed-integer>>;
 make_body(?TYPE_DOUBLE, V) ->
-	<<V:64/float>>;
+	<<V:64/float-little>>;
 make_body(?TYPE_FLOAT, V) ->
-	<<V:32/float>>;
+	<<V:32/float-little>>;
 make_body(?TYPE_SINT64, V) ->
 	gen_zig_zag(V);
 make_body(?TYPE_SINT32, V) ->
@@ -304,10 +304,10 @@ gen_varint_test() ->
 
 gen_value_test() ->
 	Half = 0.5,
-	?assertEqual( gen_value(1, ?TYPE_DOUBLE, Half), <<1:5, ?WT_64BIT:3, Half:64/float>> ),
-	?assertEqual( gen_value(2, ?TYPE_DOUBLE, Half), <<2:5, ?WT_64BIT:3, Half:64/float>> ),
-	?assertEqual( gen_value(3, ?TYPE_FLOAT, Half), <<3:5, ?WT_32BIT:3, Half:32/float>> ),
-	?assertEqual( gen_value(4, ?TYPE_FLOAT, Half), <<4:5, ?WT_32BIT:3, Half:32/float>> ),
+	?assertEqual( gen_value(1, ?TYPE_DOUBLE, Half), <<1:5, ?WT_64BIT:3, Half:64/float-little>> ),
+	?assertEqual( gen_value(2, ?TYPE_DOUBLE, Half), <<2:5, ?WT_64BIT:3, Half:64/float-little>> ),
+	?assertEqual( gen_value(3, ?TYPE_FLOAT, Half), <<3:5, ?WT_32BIT:3, Half:32/float-little>> ),
+	?assertEqual( gen_value(4, ?TYPE_FLOAT, Half), <<4:5, ?WT_32BIT:3, Half:32/float-little>> ),
 	?assertEqual( gen_value(5, ?TYPE_BOOL, 0), <<5:5, ?WT_VARINT:3, 0:8>> ),
 	?assertEqual( gen_value(6, ?TYPE_BOOL, 1), <<6:5, ?WT_VARINT:3, 1:8>> ),
 	?assertEqual( gen_value(7, ?TYPE_UINT32, 150), <<7:5, ?WT_VARINT:3, 16#96:8, 16#01:8>> ),
