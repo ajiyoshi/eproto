@@ -1,12 +1,17 @@
 {application, eproto,
- [
-  {description, ""},
-  {vsn, "1"},
-  {registered, []},
-  {applications, [
-                  kernel,
-                  stdlib
-                 ]},
-  {mod, { eproto_app, []}},
-  {env, []}
- ]}.
+    [
+        {description, ""},
+        {vsn, "1"},
+        {registered, []},
+        {applications, [
+                kernel,
+                stdlib
+            ]},
+        {modules, [
+                eproto_code_gen,
+                eproto_codec,
+                eproto_descriptor
+        ]},
+    {mod, { eproto_app, []}},
+    {env, []}
+]}.
