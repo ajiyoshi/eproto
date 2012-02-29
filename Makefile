@@ -1,25 +1,14 @@
+.PHONY:compile test clean
 
-ERLC_FLAGS= -I include -smp +native
-SOURCES=$(wildcard src/*.erl)
-HEADERS=$(wildcard include/*.hrl)
-OBJECTS=$(SOURCES:src/%.erl=ebin/%.beam)
+REBAR = ./rebar
 
-all:ebin $(OBJECTS) test
+all:compile test
 
-ebin:
-	mkdir ebin
-
-ebin/%.beam : src/%.erl $(HEADERS) Makefile
-	erlc $(ERLC_FLAGS) -o ebin/ $<
+compile:
+	$(REBAR) compile
 
 clean:
-	-rm $(OBJECTS) addressbook.bin address.erl
-	-rm -r ebin
+	$(REBAR) clean
 
 test:
-	erl -noshell -pa ebin \
-		-eval 'eunit:test("ebin", [verbose])' \
-		-s init stop
-
-release: clean
-	$(MAKE) ERLC_FLAGS="$(ERLC_FLAGS) -DNOTEST"
+	$(REBAR) eunit

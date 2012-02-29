@@ -37,7 +37,7 @@ gen_proto_file(STAcc, RDefAcc, MName) ->
 	ok.
 
 write_file(FName, FLists, RDefAcc, MName) ->
-	{ok, IODev} = file:open(test:get_home() ++ "eproto.tmpl", [read]),
+	{ok, IODev} = file:open(test:get_home() ++ "priv/eproto.tmpl", [read]),
 	Codes = read_tmpl(IODev, []),
 	file:close(IODev),
 	file:delete(FName),
@@ -287,10 +287,11 @@ render_get_record_info_fun(MT) ->
 %% Test Functions
 %%==================================================================
 gen_test() ->
-	gen(test:get_home() ++ "addr_desc.out", "address"),
+	gen(test:get_home() ++ "priv/addr_desc.out", "address"),
 	ok.
 
 tname_test() ->
 	R = convert_type_name(<<".tour.Person">>, <<>>),
-	?assert(R == tour_person).
+	?assert(R == tour_person),
+    ok.
 	

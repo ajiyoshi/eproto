@@ -1,0 +1,12 @@
+{application, eproto,
+ [
+  {description, ""},
+  {vsn, "1"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {mod, { eproto_app, []}},
+  {env, []}
+ ]}.

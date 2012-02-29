@@ -45,7 +45,8 @@ get_proto_binary(IODev, Acc) ->
 	end.	
 
 get_home() ->
-	{ok, Path} = file:get_cwd(),
+    Me = code:which(?MODULE),
+    Path = filename:dirname(filename:dirname(Me)),
 	Path ++ "/".
 
 make_test_rec() ->
@@ -102,6 +103,5 @@ dc_test1(0, _) ->
 dc_test1(N, B) ->
 	address:decode(tour_addressbook, B),
 	dc_test1(N - 1, B).
-	
 	
 	

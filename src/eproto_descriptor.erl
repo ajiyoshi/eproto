@@ -232,5 +232,6 @@ get_next_fd(MT, Bin) ->
 %% Test Functions
 %%==================================================================
 decode_test() ->
-	FilePath = test:get_home() ++ "addr_desc.out",
-	decode(FilePath).
+	FilePath = test:get_home() ++ "priv/addr_desc.out",
+	decode(FilePath),
+    ok.
