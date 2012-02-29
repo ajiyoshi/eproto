@@ -25,3 +25,4 @@ $ make
 
 * how to use
 * remvoe test.erl
+* rebar.config
