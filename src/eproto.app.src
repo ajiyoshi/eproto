@@ -12,6 +12,5 @@
                 eproto_codec,
                 eproto_descriptor
         ]},
-    {mod, { eproto_app, []}},
     {env, []}
 ]}.
